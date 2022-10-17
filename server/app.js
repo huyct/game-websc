@@ -66,6 +66,51 @@ io.on("connection", async (socket) => {
     }
   }
 
+  socket.on("newquiz", async (args) => {
+    const { roomId, category } = args;
+    if (socket.id !== listRoom[roomId].masterId) {
+      return;
+    }
+    if (!listRoom[roomId].isPlayed) {
+      listRoom[roomId].listPlayerInGame = listRoom[roomId].listPlayer.map(
+        (a) => ({ ...a, isAnswer: false, isPaint: false, score: 0 })
+      );
+      listRoom[roomId].isPlayed = true;
+      listRoom[roomId].countAnswer = 0;
+      listRoom[roomId].listQuiz = await randomListWord(
+        category,
+        listRoom[roomId].listPlayerInGame.length
+      );
+    }
+
+    const indexPlayed = ++listRoom[roomId].indexPlayed;
+    if (indexPlayed === listRoom[roomId].listPlayer.length) {
+      listRoom[roomId].isPlayed = false;
+      io.to(listRoom[roomId].masterId).emit("endgame", {
+        summaryList: listRoom[roomId].listPlayerInGame,
+        listPlayer: listRoom[roomId].listPlayer,
+      });
+      io.to(roomId).emit("endgame", true);
+      listRoom[roomId].indexPlayed = -1;
+    } else {
+      listRoom[roomId].countAnswer = 0;
+
+      const paintId = listRoom[roomId].listPlayer[indexPlayed].socketId;
+      const paintName = listRoom[roomId].listPlayer[indexPlayed].name;
+      handleResetNewQuiz(listRoom[roomId].listPlayerInGame, paintId);
+      io.to(listRoom[roomId].masterId).emit("newquiz", {
+        paintId: paintId,
+        word: listRoom[roomId].listQuiz[indexPlayed],
+        paintName: paintName,
+        listPlayer: listRoom[roomId].listPlayerInGame,
+      });
+      io.to(roomId).emit("newquiz", {
+        paintId: paintId,
+        quiz: listRoom[roomId].listQuiz[indexPlayed],
+      });
+    }
+  });
+
   socket.on("paint", (args) => {
     const { roomId, base64 } = args;
     if (listRoom[roomId]) {
