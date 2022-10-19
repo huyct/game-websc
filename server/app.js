@@ -111,6 +111,54 @@ io.on("connection", async (socket) => {
     }
   });
 
+  socket.on("answer", (args) => {
+    const { isTrue, answer, roomId } = args;
+    if (isTrue) {
+      ++listRoom[roomId].countAnswer;
+      const paintId =
+        listRoom[roomId].listPlayer[listRoom[roomId].indexPlayed].socketId;
+      listRoom[roomId]?.listPlayerInGame?.forEach((player) => {
+        if (player.socketId === socket.id) {
+          player.score += handleScore(listRoom[roomId].countAnswer);
+          player.isAnswer = true;
+        }
+        if (player.socketId === paintId) {
+          player.score += 20;
+        }
+      });
+      sortListPlayer(listRoom[roomId].listPlayerInGame);
+      io.to(listRoom[roomId].masterId).emit("answer", {
+        type: true,
+        listPlayer: listRoom[roomId].listPlayerInGame,
+        answer: answer,
+        answerId: socket.id,
+      });
+      if (
+        listRoom[roomId].countAnswer ===
+        listRoom[roomId].listPlayerInGame.length - 1
+      ) {
+        io.to(listRoom[roomId].masterId).emit("endquiz", {
+          listPlayer: listRoom[roomId].listPlayerInGame,
+        });
+        io.to(roomId).emit("endquiz", true);
+      }
+    } else {
+      io.to(listRoom[roomId].masterId).emit("answer", {
+        type: false,
+        listPlayer: listRoom[roomId].listPlayerInGame,
+        answer: answer,
+        answerId: socket.id,
+        name: listClient[socket.id].name,
+      });
+    }
+  });
+
+  socket.on("endquiz", (args) => {
+    const { roomId } = args;
+    io.to(listRoom[roomId]?.masterId).emit("endquiz", true);
+    io.to(roomId).emit("endquiz", true);
+  });
+
   socket.on("paint", (args) => {
     const { roomId, base64 } = args;
     if (listRoom[roomId]) {
