@@ -166,3 +166,16 @@ io.on("connection", async (socket) => {
     }
   });
 });
+
+const handleResetNewQuiz = (list, paintId) => {
+  list.forEach((player) => {
+    player.isAnswer = false;
+    player.isTrue = false;
+  });
+
+  list.forEach((player) => {
+    if (player.socketId === paintId) {
+      player.isPaint = true;
+    }
+  });
+};
