@@ -153,6 +153,20 @@ io.on("connection", async (socket) => {
     }
   });
 
+  socket.on("leave", (args) => {
+    const { roomId } = listClient[socket.id];
+    delete listClient[socket.id];
+    listRoom[roomId].listPlayer = listRoom[roomId].listPlayer.filter(
+      (member) => {
+        member.socketId !== socket.id;
+      }
+    );
+    io.to(listRoom[roomId]?.masterId).emit(
+      "playerjoin",
+      listRoom[roomId].listPlayer
+    );
+  });
+
   socket.on("endquiz", (args) => {
     const { roomId } = args;
     io.to(listRoom[roomId]?.masterId).emit("endquiz", true);
@@ -163,6 +177,38 @@ io.on("connection", async (socket) => {
     const { roomId, base64 } = args;
     if (listRoom[roomId]) {
       io.to(listRoom[roomId].masterId).emit("paint", base64);
+    }
+  });
+
+  socket.on("disconnect", (args) => {
+    const { type, roomId } = listClient[socket.id];
+    delete listClient[socket.id];
+    if (type === "create") {
+      io.to(roomId).emit("status", { type: "error" });
+      delete listRoom[roomId];
+    }
+
+    if (listRoom[roomId] && type === "join") {
+      listRoom[roomId].listPlayer = listRoom[roomId].listPlayer.filter(
+        (member) => {
+          member.socketId !== socket.id;
+        }
+      );
+
+      if (!listRoom[roomId].isPlayed) {
+        io.to(listRoom[roomId]?.masterId).emit(
+          "playerjoin",
+          listRoom[roomId].listPlayer
+        );
+      } else {
+        listRoom[roomId].listPlayer = listRoom[roomId].listPlayer.filter(
+          (member) => member.socketId !== socket.id
+        );
+        io.to(listRoom[roomId]?.masterId).emit("status", {
+          type: "memberleave",
+          listPlayer: listRoom[roomId].listPlayerInGame,
+        });
+      }
     }
   });
 });
